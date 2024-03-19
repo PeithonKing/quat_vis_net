@@ -3,7 +3,10 @@ let qout = 1;
 let rin = 4;
 let rout = 4;
 
-let scale = 1
+let scale = 1.7;
+
+let all_nodes = [];
+let all_edges = [];
 
 WHITE = [255, 255, 255]
 BLACK = [  0,   0,   0]
@@ -29,12 +32,13 @@ Ck_light = "#81C784"  // 129, 200, 132
 console.log("sketch.js is loaded");
 
 class Node {
-    constructor(x, y, color = RED, size = 25*scale) {
+    constructor(x, y, corr = null, color = RED, size = 25*scale) {
         this.x = x;
         this.y = y;
         this.size = size;
         this.color = color;
         this.draw();
+        this.corr = corr;
 
         // it is expected that the ith edge will lead to the ith neighbour
         // the neighbours can be both in the fwd direction and the bwd direction
@@ -49,7 +53,27 @@ class Node {
     }
 
     hit(point) {
-        return (point.x - this.x)**2 + (point.y - this.y)**2 < (this.size/2)**2;
+        let hitornot =  (point.x - this.x)**2 + (point.y - this.y)**2 < (this.size/2)**2;
+        // if (hitornot) {
+        //     console.log("hit");
+        // }
+        return hitornot;
+    }
+
+    highlight(recurse = true) {
+        fill(GREEN);
+        stroke(0);
+        ellipse(this.x, this.y, this.size, this.size);
+        if (recurse) {
+            this.edges.forEach(edge => {
+                edge.highlight(recurse = false);
+            });
+            if (this.corr) {
+                this.corr.forEach(element => {
+                    element.highlight();
+                });
+            }
+        }
     }
 }
 
@@ -66,10 +90,15 @@ class Edge {
         this.draw();
     }
 
-    highlight() {
+    highlight(recurse = true) {
+        // console.log("highlighting edge");
         fill(this.highlight_color);
         stroke(this.highlight_color);
-        this.draw(true);
+        quad(this.v1.x, this.v1.y, this.v2.x, this.v2.y, this.v3.x, this.v3.y, this.v4.x, this.v4.y);
+        if (recurse) {
+            this.node1.highlight(false);
+            this.node2.highlight(false);
+        }
     }
 
     draw() {
@@ -155,14 +184,72 @@ class Matrix{
 
 }
 
+class QuatMatrix{
+    constructor(width, height, origin, size, color = RED, highlight_color = BLUE) {
+        this.width = width;
+        this.height = height;
+        this.origin = origin;
+        this.size = size;
+        this.color = color;
+        this.highlight_color = highlight_color;
+        this.draw(color);
+        // console.log("width = ", this.width, "height = ", this.height, "origin = ", this.origin, "size = ", this.size, "color = ", this.color);
+    }
+
+    highlight() {
+        this.draw(this.highlight_color);
+    }
+
+    draw(color) {
+        // console.log("drawing matrix");
+        fill(color);
+        stroke(0);
+        for (let i = 0; i < this.width; i++) {
+            for (let j = 0; j < this.height; j++) {
+                square(this.origin[0] + i * this.size, this.origin[1] + j * this.size, this.size);
+            }
+        }
+    }
+
+}
+
+class RealMatrix{
+    constructor(width, height, origin, size, color = RED, highlight_color = BLUE) {
+        this.width = width;
+        this.height = height;
+        this.origin = origin;
+        this.size = size;
+        this.color = color;
+        this.highlight_color = highlight_color;
+        this.draw(color);
+        // console.log("width = ", this.width, "height = ", this.height, "origin = ", this.origin, "size = ", this.size, "color = ", this.color);
+    }
+
+    highlight() {
+        this.draw(this.highlight_color);
+    }
+
+    draw(color) {
+        // console.log("drawing matrix");
+        fill(color);
+        stroke(0);
+        for (let i = 0; i < this.width; i++) {
+            for (let j = 0; j < this.height; j++) {
+                square(this.origin[0] + i * this.size, this.origin[1] + j * this.size, this.size);
+            }
+        }
+    }
+
+}
+
 function prepareNetwork(qin, qout) {
     rin = qin * 4;
     rout = qout * 4;
     
-    let x_spacing = 150;
-    let y_spacing = 50;
-    let real_origin = [150, 325]
-    let quat_origin = [400, 150]
+    let x_spacing = 150*scale;
+    let y_spacing = 50*scale;
+    let real_origin = [150*scale, 325*scale]
+    let quat_origin = [400*scale, 150*scale]
 
     // stroke(0);
     // fill(GREEN);
@@ -173,43 +260,53 @@ function prepareNetwork(qin, qout) {
 
     real_input_nodes = [];
     for(let i = -rin/2; i < rin/2; i++) {
-        real_input_nodes.push(new Node(real_origin[0]-x_spacing/2, real_origin[1] + y_spacing * i, RED));
+        real_input_nodes.push(new Node(real_origin[0]-x_spacing/2, real_origin[1] + y_spacing * i, null, RED));
     }
-    
+
     real_output_nodes = [];
     for(let i = -rout/2; i < rout/2; i++) {
-        real_output_nodes.push(new Node(real_origin[0]+x_spacing/2, real_origin[1] + y_spacing * i, RED));
+        real_output_nodes.push(new Node(real_origin[0]+x_spacing/2, real_origin[1] + y_spacing * i, null, RED));
     }
-    
+
     quat_input_nodes = [];
     for(let i = -qin/2; i < qin/2; i++) {
-        quat_input_nodes.push(new Node(quat_origin[0]-x_spacing/2, quat_origin[1] + y_spacing * i, BLUE));
+        // semd the real_input_nodes[i to i+4] as corr
+        p = (i+qin/2)*4;
+        quat_input_nodes.push(new Node(quat_origin[0]-x_spacing/2, quat_origin[1] + y_spacing * i, real_input_nodes.slice(p, p+4), BLUE));
     }
-    
+
     quat_output_nodes = [];
     for(let i = -qout/2; i < qout/2; i++) {
-        quat_output_nodes.push(new Node(quat_origin[0]+x_spacing/2, quat_origin[1] + y_spacing * i, BLUE));
+        // semd the real_output_nodes[i to i+4] as corr
+        p = (i+qout/2)*4;
+        quat_output_nodes.push(new Node(quat_origin[0]+x_spacing/2, quat_origin[1] + y_spacing * i, real_output_nodes.slice(p, p+4), BLUE));
     }
 
     // console.log(real_input_nodes.length, real_output_nodes.length, quat_input_nodes.length, quat_output_nodes.length);
 
+    real_edges = [];
+
+    // make the edges
     real_input_nodes.forEach(node1 => {
         real_output_nodes.forEach(node2 => {
-            newedge = new Edge(node1, node2, 1, BLACK);
+            newedge = new Edge(node1, node2, 1, BLACK, GREEN);
             node1.neighbours.push(node2);
             node1.edges.push(newedge);
             node2.neighbours.push(node1);
             node2.edges.push(newedge);
+            real_edges.push(newedge);
         });
     });
 
+    quat_edges = [];
     quat_input_nodes.forEach(node1 => {
         quat_output_nodes.forEach(node2 => {
-            newedge = new Edge(node1, node2, 1, BLACK);
+            newedge = new Edge(node1, node2, 1, BLACK, GREEN);
             node1.neighbours.push(node2);
             node1.edges.push(newedge);
             node2.neighbours.push(node1);
             node2.edges.push(newedge);
+            quat_edges.push(newedge);
         });
     });
 
@@ -225,90 +322,87 @@ function prepareNetwork(qin, qout) {
     //     }
     // }
 
-    size = 15;
-    spacing = 50
-    o = [300, 300]
-    // quaternion_matrix = [
-    //     [r, -i, -j, -k],
-    //     [i,  r, -k,  j],
-    //     [j,  k,  r, -i],
-    //     [k, -j,  i,  r]
-    // ]
-
-    // the four quaternion matrices
-    new Matrix(qin, qout, [o[0]        , o[1]        ], size, Cr, Cr_light)
-    new Matrix(qin, qout, [o[0]+spacing, o[1]        ], size, Ci, Ci_light)
-    new Matrix(qin, qout, [o[0]        , o[1]+spacing], size, Cj, Cj_light)
-    new Matrix(qin, qout, [o[0]+spacing, o[1]+spacing], size, Ck, Ck_light)
+    size = 15*scale;
+    spacing = 50*scale
     
-    o = [450, 400]
-    // the 4 * 4 = 16 matrices for real
-    // quaternion_matrix = [
-    //     [r, i, j, k],
-    //     [i, r, k, j],
-    //     [j, k, r, i],
-    //     [k, j, i, r]
-    // ]
-    new Matrix(qin, qout, [o[0]+0*spacing, o[1]+0*spacing], size, Cr, Cr_light)
-    new Matrix(qin, qout, [o[0]+1*spacing, o[1]+0*spacing], size, Ci, Ci_light)
-    new Matrix(qin, qout, [o[0]+2*spacing, o[1]+0*spacing], size, Cj, Cj_light)
-    new Matrix(qin, qout, [o[0]+3*spacing, o[1]+0*spacing], size, Ck, Ck_light)
+    o = [500*scale, 300*scale]
+    // the 4 * 4 = 16 matrices for real_edges
 
-    new Matrix(qin, qout, [o[0]+0*spacing, o[1]+1*spacing], size, Ci, Ci_light)
-    new Matrix(qin, qout, [o[0]+1*spacing, o[1]+1*spacing], size, Cr, Cr_light)
-    new Matrix(qin, qout, [o[0]+2*spacing, o[1]+1*spacing], size, Ck, Ck_light)
-    new Matrix(qin, qout, [o[0]+3*spacing, o[1]+1*spacing], size, Cj, Cj_light)
+    // new RealMatrix(qin, qout, [o[0]+0*spacing, o[1]+0*spacing], size, Cr, Cr_light)
+    // new RealMatrix(qin, qout, [o[0]+1*spacing, o[1]+0*spacing], size, Ci, Ci_light)
+    // new RealMatrix(qin, qout, [o[0]+2*spacing, o[1]+0*spacing], size, Cj, Cj_light)
+    // new RealMatrix(qin, qout, [o[0]+3*spacing, o[1]+0*spacing], size, Ck, Ck_light)
 
-    new Matrix(qin, qout, [o[0]+0*spacing, o[1]+2*spacing], size, Cj, Cj_light)
-    new Matrix(qin, qout, [o[0]+1*spacing, o[1]+2*spacing], size, Ck, Ck_light)
-    new Matrix(qin, qout, [o[0]+2*spacing, o[1]+2*spacing], size, Cr, Cr_light)
-    new Matrix(qin, qout, [o[0]+3*spacing, o[1]+2*spacing], size, Ci, Ci_light)
+    // new RealMatrix(qin, qout, [o[0]+0*spacing, o[1]+1*spacing], size, Ci, Ci_light)
+    // new RealMatrix(qin, qout, [o[0]+1*spacing, o[1]+1*spacing], size, Cr, Cr_light)
+    // new RealMatrix(qin, qout, [o[0]+2*spacing, o[1]+1*spacing], size, Ck, Ck_light)
+    // new RealMatrix(qin, qout, [o[0]+3*spacing, o[1]+1*spacing], size, Cj, Cj_light)
 
-    new Matrix(qin, qout, [o[0]+0*spacing, o[1]+3*spacing], size, Ck, Ck_light)
-    new Matrix(qin, qout, [o[0]+1*spacing, o[1]+3*spacing], size, Cj, Cj_light)
-    new Matrix(qin, qout, [o[0]+2*spacing, o[1]+3*spacing], size, Ci, Ci_light)
-    new Matrix(qin, qout, [o[0]+3*spacing, o[1]+3*spacing], size, Cr, Cr_light)
+    // new RealMatrix(qin, qout, [o[0]+0*spacing, o[1]+2*spacing], size, Cj, Cj_light)
+    // new RealMatrix(qin, qout, [o[0]+1*spacing, o[1]+2*spacing], size, Ck, Ck_light)
+    // new RealMatrix(qin, qout, [o[0]+2*spacing, o[1]+2*spacing], size, Cr, Cr_light)
+    // new RealMatrix(qin, qout, [o[0]+3*spacing, o[1]+2*spacing], size, Ci, Ci_light)
 
+    // new RealMatrix(qin, qout, [o[0]+0*spacing, o[1]+3*spacing], size, Ck, Ck_light)
+    // new RealMatrix(qin, qout, [o[0]+1*spacing, o[1]+3*spacing], size, Cj, Cj_light)
+    // new RealMatrix(qin, qout, [o[0]+2*spacing, o[1]+3*spacing], size, Ci, Ci_light)
+    // new RealMatrix(qin, qout, [o[0]+3*spacing, o[1]+3*spacing], size, Cr, Cr_light)
 
+    new RealMatrix(rin, rout, [o[0]        , o[1]        ], size, Cr, Cr_light)
 
-    // new Matrix(qin, qout, [o[0]        , o[1]        ], size, Cr_light)
-    // new Matrix(qin, qout, [o[0]+spacing, o[1]        ], size, Ci_light)
-    // new Matrix(qin, qout, [o[0]        , o[1]+spacing], size, Cj_light)
-    // new Matrix(qin, qout, [o[0]+spacing, o[1]+spacing], size, Ck_light)
+    o = [300*scale, 300*scale]
+    // the four quaternion matrices
+    // new QuatMatrix(qin, qout, [o[0]        , o[1]        ], size, Cr, Cr_light)
+    // new QuatMatrix(qin, qout, [o[0]+spacing, o[1]        ], size, Ci, Ci_light)
+    // new QuatMatrix(qin, qout, [o[0]        , o[1]+spacing], size, Cj, Cj_light)
+    // new QuatMatrix(qin, qout, [o[0]+spacing, o[1]+spacing], size, Ck, Ck_light)
+    new QuatMatrix(qin, qout, [o[0]        , o[1]        ], size, Cr, Cr_light)
 
-
+    // return a list which contains all the elements in real_input_nodes, real_output_nodes, quat_input_nodes and quat_output_nodes
+    all_nodes = real_input_nodes.concat(real_output_nodes, quat_input_nodes, quat_output_nodes);
+    all_edges = real_edges.concat(quat_edges);
+    // return [all_nodes, all_edges];
 }
 
+// let [nodes, edges] = prepareNetwork(qin, qout);
+
 function setup() {
+    background(220);
     createCanvas(800*scale, 600*scale);
-    draw();
+
+    qin = document.getElementById("inNeurons").value;
+    qout = document.getElementById("outNeurons").value;
+    prepareNetwork(qin, qout);
+    console.log("setup is done");
+    
 }
 
 function draw() {
-    background(255);
-
     // Update the number of neurons based on the slider value
-    qin = document.getElementById("inNeurons").value;
-    qout = document.getElementById("outNeurons").value;
 
-    // Calculate the spacing between neurons
-    // let spacing = width / (numNeurons + 1);
-    // let spacing = 100;
+    if (
+        qin != document.getElementById("inNeurons").value ||
+        qout != document.getElementById("outNeurons").value
+    ) setup();
 
-    prepareNetwork(qin, qout);
+    all_edges.forEach(element => {
+        element.draw();
+    });
 
+    all_nodes.forEach(element => {
+        element.draw();
+    });
 
-    // Draw circles for each neuron
-    // for (let i = 1; i <= qin; i++) {
-    //     let x = i * spacing;
-    //     let y = height / 2;
-    //     drawNeuron(x, y);
-    // }
+    all_edges.forEach(element => {
+        if (element.hit({x: mouseX, y: mouseY})) {
+            element.highlight();
+        }
+    });
 
-    // // Draw circles for each neuron
-    // for (let i = 1; i <= qout; i++) {
-    //     let x = i * spacing+10;
-    //     let y = height / 2;
-    //     drawNeuron(x, y);
-    // }
+    all_nodes.forEach(element => {
+        if (element.hit({x: mouseX, y: mouseY})) {
+            element.highlight();
+        }
+    });
+
 }
