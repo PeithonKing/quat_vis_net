@@ -3,7 +3,9 @@ let qout = 1;
 let rin = 4;
 let rout = 4;
 
-let scale = 1.7;
+// set the scale to be the minimum of window width / 800 and window height / 600
+let scale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
+console.log(scale);
 
 let all_nodes = [];
 let all_edges = [];
@@ -506,5 +508,8 @@ function draw() {
             element.highlight();
         }
     });
+
+    frameRate(5);
+    console.log(frameRate());
 
 }
